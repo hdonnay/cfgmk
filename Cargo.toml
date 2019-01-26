@@ -8,3 +8,6 @@ readme = "README.md"
 
 [dependencies]
 nom = "^4.1"
+structopt = "0.2"
+tar = "0.4"
+walkdir = "2"
