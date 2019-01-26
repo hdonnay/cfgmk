@@ -7,3 +7,4 @@ license = "GPL-3.0"
 readme = "README.md"
 
 [dependencies]
+nom = "^4.1"
