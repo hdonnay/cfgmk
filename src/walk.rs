@@ -34,7 +34,8 @@ mod test {
     #[test]
     fn find() {
         let r = PathBuf::from("tests/walk");
-        let rs = find_rules(r);
+        let mut rs = find_rules(r);
+        rs.sort();
         assert_eq!(rs, [
             PathBuf::from("tests/walk/Rules"),
             PathBuf::from("tests/walk/sub/Rules"),
