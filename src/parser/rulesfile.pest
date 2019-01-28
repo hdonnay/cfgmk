@@ -1,0 +1,12 @@
+file = _{ SOI ~ statement* ~ EOI }
+statement = { directive ~ string ~ from }
+directive = { "create" | "append" }
+path = { string }
+from = {fromFile | fromLiteral | fromFilter}
+fromFile = { "from" ~ string }
+fromLiteral = { "literal" ~ string }
+fromFilter = { "filter" ~ string ~ ( fromFile | fromLiteral ) }
+string = ${ "'" ~ inner ~ "'" }
+inner = @{ char* }
+char = { !("'") ~ ANY | "''" }
+WHITESPACE = _{ NEWLINE | " " | "\t" }

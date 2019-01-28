@@ -8,6 +8,8 @@ readme = "README.md"
 
 [dependencies]
 nom = "^4.1"
+pest = "2.1.0"
+pest_derive = "2.1.0"
 structopt = "0.2"
 tar = "0.4"
 walkdir = "2"
