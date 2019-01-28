@@ -24,13 +24,16 @@ pub fn rulesfile(file: &str) -> Result<Vec<Stmt>, Error<Rule>> {
                         "append" => Directive::Append,
                         _ => panic!("wat")
                     },
-                    path: path.as_str().to_string(),
+                    path: unescape(path.as_str()),
                     from: match from.as_rule() {
                         Rule::fromFile => {
                             let n = from.into_inner().as_str();
-                            From::File(n.to_string())
+                            From::File(unescape(n))
                         },
-                        Rule::fromLiteral => unimplemented!(),
+                        Rule::fromLiteral => {
+                            let n = from.into_inner().as_str();
+                            From::Literal(unescape(n))
+                        },
                         Rule::fromFilter => unimplemented!(),
                         _ => panic!("wat"),
                     },
@@ -46,7 +49,12 @@ pub fn rulesfile(file: &str) -> Result<Vec<Stmt>, Error<Rule>> {
 }
 
 fn unescape(s: &str) -> String {
-    unimplemented!()
+    let l = s.len();
+    if l < 2 {
+        panic!("string too short");
+    }
+    let s = &s[1..l-1];
+    s.to_string().replace("''", "'")
 }
 
 pub use nom::{IResult, Needed};
