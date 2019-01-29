@@ -1,11 +1,11 @@
+use std::fs::File;
+use std::io::{self, Read};
 use std::path::PathBuf;
 use structopt::StructOpt;
-use std::io::{self, Read};
-use std::fs::File;
 
+mod archive;
 mod parser;
 mod walk;
-mod archive;
 
 #[macro_use]
 extern crate nom;
@@ -14,7 +14,6 @@ extern crate structopt;
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
-
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -32,7 +31,8 @@ fn main() {
     let f = match opt.output {
         None => File::open("/dev/stdout"),
         Some(n) => File::create(n),
-    }.unwrap();
+    }
+    .unwrap();
     let ar = archive::new(f);
 
     let root = match opt.root {
@@ -52,10 +52,10 @@ fn main() {
         let mut buf = Vec::new();
         f.read_to_end(&mut buf).unwrap();
         bs.push(buf);
-     }
+    }
 
-     let mut stmts = Vec::new();
-     for buf in bs {
+    let mut stmts = Vec::new();
+    for buf in bs {
         match parser::statements(&buf) {
             Ok((_, v)) => stmts.extend(v),
             Err(e) => println!("{:?}", e),

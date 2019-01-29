@@ -1,8 +1,8 @@
 use std::fs;
 
-use pest::Parser;
 use pest::error::Error;
 use pest::iterators::{Pair, Pairs};
+use pest::Parser;
 
 #[derive(Parser)]
 #[grammar = "parser/rulesfile.pest"]
@@ -19,23 +19,23 @@ pub fn rulesfile(file: &str) -> Result<Vec<Stmt>, Error<Rule>> {
                 let kind = s.next();
                 let path = s.next().unwrap();
                 let from = s.next().unwrap().into_inner().next().unwrap();
-                stmts.push(Stmt{
+                stmts.push(Stmt {
                     kind: parse_kind(kind).unwrap(),
                     path: unescape(path.as_str()),
                     from: match from.as_rule() {
                         Rule::fromFile => {
                             let n = from.into_inner().as_str();
                             From::File(unescape(n))
-                        },
+                        }
                         Rule::fromLiteral => {
                             let n = from.into_inner().as_str();
                             From::Literal(unescape(n))
-                        },
+                        }
                         Rule::fromFilter => unimplemented!(),
                         _ => panic!("wat"),
                     },
                 });
-            },
+            }
             Rule::EOI => break,
             _ => unimplemented!(),
         }
@@ -50,38 +50,38 @@ fn unescape(s: &str) -> String {
     if l < 2 {
         panic!("string too short");
     }
-    let s = &s[1..l-1];
+    let s = &s[1..l - 1];
     s.to_string().replace("''", "'")
 }
 
 fn parse_kind(pair: Option<Pair<Rule>>) -> Option<Directive> {
-	match pair {
-		None => None,
-		Some(p) => Some(match p.as_str() {
-			"create" => Directive::Create,
-			"append" => Directive::Append,
-			_ => unreachable!(),
-		})
-	}
+    match pair {
+        None => None,
+        Some(p) => Some(match p.as_str() {
+            "create" => Directive::Create,
+            "append" => Directive::Append,
+            _ => unreachable!(),
+        }),
+    }
 }
 
-pub use nom::{IResult, Needed};
 use nom::{is_space, newline};
+pub use nom::{IResult, Needed};
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Directive {
     Create,
     Append,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Stmt {
     pub kind: Directive,
     pub path: String,
     pub from: From,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum From {
     File(String),
     Filter(String, String),
@@ -92,48 +92,53 @@ pub fn statements(i: &[u8]) -> IResult<&[u8], Vec<Stmt>> {
     do_parse!(i, s: many0!(parse_statement) >> eof!() >> (s))
 }
 
-named!(parse_statement<Stmt>, do_parse!(
-    kind: directive >>
-    take_while1!(is_space) >>
-    path: string >>
-    take_while1!(is_space) >>
-    from: alt!(fromFile | fromFilter | fromLiteral) >>
-    call!(newline) >>
-    (Stmt {
-        kind: kind,
-        path: path,
-        from: from,
-    })
-));
-named!(directive< Directive >, alt!(
-    value!(Directive::Create, tag!("create")) |
-    value!(Directive::Append, tag!("append"))
-));
+named!(
+    parse_statement<Stmt>,
+    do_parse!(
+        kind: directive
+            >> take_while1!(is_space)
+            >> path: string
+            >> take_while1!(is_space)
+            >> from: alt!(fromFile | fromFilter | fromLiteral)
+            >> call!(newline)
+            >> (Stmt {
+                kind: kind,
+                path: path,
+                from: from,
+            })
+    )
+);
+named!(
+    directive<Directive>,
+    alt!(value!(Directive::Create, tag!("create")) | value!(Directive::Append, tag!("append")))
+);
 
 named!(sq, delimited!(tag!("'"), take_until!("'"), tag!("'")));
-named!(run_sq< Vec<String> >, many1!(map!(sq, |item| {String::from_utf8_lossy(item).to_string()})));
-named!(string< String >, map!(run_sq, |v| { v.join("'") }));
+named!(
+    run_sq<Vec<String>>,
+    many1!(map!(sq, |item| String::from_utf8_lossy(item).to_string()))
+);
+named!(string<String>, map!(run_sq, |v| v.join("'")));
 
-named!(fromFile< From >, do_parse!(
-    tag!("from") >>
-    take_while1!(is_space) >>
-    f: string >>
-    (From::File(f))
-));
-named!(fromFilter<From>, do_parse!(
-    tag!("filter") >>
-    take_while1!(is_space) >>
-    which: string >>
-    take_while1!(is_space) >>
-    f: string >>
-    (From::Filter(which, f))
-));
-named!(fromLiteral<From>, do_parse!(
-    tag!("literal") >>
-    take_while1!(is_space) >>
-    l: string >>
-    (From::Literal(l))
-));
+named!(
+    fromFile<From>,
+    do_parse!(tag!("from") >> take_while1!(is_space) >> f: string >> (From::File(f)))
+);
+named!(
+    fromFilter<From>,
+    do_parse!(
+        tag!("filter")
+            >> take_while1!(is_space)
+            >> which: string
+            >> take_while1!(is_space)
+            >> f: string
+            >> (From::Filter(which, f))
+    )
+);
+named!(
+    fromLiteral<From>,
+    do_parse!(tag!("literal") >> take_while1!(is_space) >> l: string >> (From::Literal(l)))
+);
 
 #[cfg(test)]
 mod test {
@@ -156,44 +161,78 @@ mod test {
 
     #[test]
     fn literal() {
-        assert_eq!(fromLiteral(&b"literal 'test'\n"[..]),
-            Ok((LF, From::Literal("test".to_string()))));
-        assert_eq!(fromLiteral(&b"literal 'devil''s advocate'\n"[..]),
-            Ok((LF, From::Literal("devil's advocate".to_string()))));
+        assert_eq!(
+            fromLiteral(&b"literal 'test'\n"[..]),
+            Ok((LF, From::Literal("test".to_string())))
+        );
+        assert_eq!(
+            fromLiteral(&b"literal 'devil''s advocate'\n"[..]),
+            Ok((LF, From::Literal("devil's advocate".to_string())))
+        );
     }
 
     #[test]
     fn file() {
-        assert_eq!(fromFile(&b"from 'test'\n"[..]),
-            Ok((LF, From::File("test".to_string()))));
-        assert_eq!(fromFile(&b"from '/dev/null'\n"[..]),
-            Ok((LF, From::File("/dev/null".to_string()))));
-        assert_eq!(fromFile(&b"from 'odd path'\n"[..]),
-            Ok((LF, From::File("odd path".to_string()))));
+        assert_eq!(
+            fromFile(&b"from 'test'\n"[..]),
+            Ok((LF, From::File("test".to_string())))
+        );
+        assert_eq!(
+            fromFile(&b"from '/dev/null'\n"[..]),
+            Ok((LF, From::File("/dev/null".to_string())))
+        );
+        assert_eq!(
+            fromFile(&b"from 'odd path'\n"[..]),
+            Ok((LF, From::File("odd path".to_string())))
+        );
     }
 
     #[test]
     fn filter() {
-        assert_eq!(fromFilter(&b"filter 'cat' '/dev/null'\n"[..]),
-            Ok((LF, From::Filter("cat".to_string(), "/dev/null".to_string()))));
-        assert_eq!(fromFilter(&b"filter 'simple' '/dev/null'\n"[..]),
-            Ok((LF, From::Filter("simple".to_string(), "/dev/null".to_string()))));
-        assert_eq!(fromFilter(&b"filter 'other filter' 'odd path'\n"[..]),
-            Ok((LF, From::Filter("other filter".to_string(), "odd path".to_string()))));
+        assert_eq!(
+            fromFilter(&b"filter 'cat' '/dev/null'\n"[..]),
+            Ok((LF, From::Filter("cat".to_string(), "/dev/null".to_string())))
+        );
+        assert_eq!(
+            fromFilter(&b"filter 'simple' '/dev/null'\n"[..]),
+            Ok((
+                LF,
+                From::Filter("simple".to_string(), "/dev/null".to_string())
+            ))
+        );
+        assert_eq!(
+            fromFilter(&b"filter 'other filter' 'odd path'\n"[..]),
+            Ok((
+                LF,
+                From::Filter("other filter".to_string(), "odd path".to_string())
+            ))
+        );
     }
 
     #[test]
     fn statement() {
-        assert_eq!(parse_statement(&b"create 'test' from 'test'\n"[..]),
-            Ok((NIL, Stmt{
-                kind: Directive::Create,
-                path: "test".to_string(),
-                from: From::File("test".to_string())})));
-        assert_eq!(parse_statement(&b"append 'test' literal 'test\n'\n"[..]),
-            Ok((NIL, Stmt{
-                kind: Directive::Append,
-                path: "test".to_string(),
-                from: From::Literal("test\n".to_string())})));
+        assert_eq!(
+            parse_statement(&b"create 'test' from 'test'\n"[..]),
+            Ok((
+                NIL,
+                Stmt {
+                    kind: Directive::Create,
+                    path: "test".to_string(),
+                    from: From::File("test".to_string())
+                }
+            ))
+        );
+        assert_eq!(
+            parse_statement(&b"append 'test' literal 'test\n'\n"[..]),
+            Ok((
+                NIL,
+                Stmt {
+                    kind: Directive::Append,
+                    path: "test".to_string(),
+                    from: From::Literal("test\n".to_string())
+                }
+            ))
+        );
     }
 
     #[test]
