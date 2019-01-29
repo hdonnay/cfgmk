@@ -8,7 +8,7 @@ use walkdir::{DirEntry, WalkDir};
 pub fn find_rules(root: PathBuf) -> Vec<PathBuf> {
     let r = WalkDir::new(root);
     let mut acc = Vec::new();
-    for e in r.into_iter().filter_entry(filter_walk).into_iter() {
+    for e in r.into_iter().filter_entry(filter_walk) {
         let e = e.unwrap();
         if !e.file_type().is_dir() {
             acc.push(e.path().into())
@@ -20,7 +20,7 @@ pub fn find_rules(root: PathBuf) -> Vec<PathBuf> {
 fn filter_walk(e: &DirEntry) -> bool {
     !e.file_name()
         .to_str()
-        .map(|s| s.starts_with("."))
+        .map(|s| s.starts_with('.'))
         .unwrap_or(false)
         || (!e.file_type().is_dir() && e.file_name() == "Rules")
 }

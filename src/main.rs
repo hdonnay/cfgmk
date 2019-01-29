@@ -1,14 +1,13 @@
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::PathBuf;
+use std::str;
 use structopt::StructOpt;
 
 mod archive;
 mod parser;
 mod walk;
 
-#[macro_use]
-extern crate nom;
 #[macro_use]
 extern crate structopt;
 extern crate pest;
@@ -56,8 +55,8 @@ fn main() {
 
     let mut stmts = Vec::new();
     for buf in bs {
-        match parser::statements(&buf) {
-            Ok((_, v)) => stmts.extend(v),
+        match parser::rulesfile(str::from_utf8(&buf).unwrap()) {
+            Ok(v) => stmts.extend(v),
             Err(e) => println!("{:?}", e),
         }
     }
