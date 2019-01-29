@@ -4,12 +4,15 @@ use std::path::PathBuf;
 
 extern crate tar;
 
-pub struct Builder<T: Write> {
+type TarBuilder<'a> = tar::Builder<Box<dyn Write + 'a>>;
+
+pub struct Builder<'a> {
     m: HashMap<PathBuf, Vec<u8>>,
-    b: tar::Builder<T>,
+    b: TarBuilder<'a>,
 }
 
-pub fn new<T: Write>(inner: T) -> Builder<T> {
+pub fn new<'a, T: Write + 'a>(w: T) -> Builder<'a> {
+    let inner = Box::new(w) as Box<dyn Write + 'a>;
     let mut ar = tar::Builder::new(inner);
     ar.follow_symlinks(false);
     Builder {
@@ -18,7 +21,7 @@ pub fn new<T: Write>(inner: T) -> Builder<T> {
     }
 }
 
-impl<T: Write> Builder<T> {
+impl<'a> Builder<'a> {
     fn create(&self) -> Result<()> {
         unimplemented!()
     }
