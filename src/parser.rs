@@ -2,6 +2,7 @@ use std::fs;
 
 use pest::Parser;
 use pest::error::Error;
+use pest::iterators::{Pair, Pairs};
 
 #[derive(Parser)]
 #[grammar = "parser/rulesfile.pest"]
@@ -15,15 +16,11 @@ pub fn rulesfile(file: &str) -> Result<Vec<Stmt>, Error<Rule>> {
         match pair.as_rule() {
             Rule::statement => {
                 let mut s = pair.into_inner();
-                let kind = s.next().unwrap();
+                let kind = s.next();
                 let path = s.next().unwrap();
                 let from = s.next().unwrap().into_inner().next().unwrap();
                 stmts.push(Stmt{
-                    kind: match kind.as_str() {
-                        "create" => Directive::Create,
-                        "append" => Directive::Append,
-                        _ => panic!("wat")
-                    },
+                    kind: parse_kind(kind).unwrap(),
                     path: unescape(path.as_str()),
                     from: match from.as_rule() {
                         Rule::fromFile => {
@@ -55,6 +52,17 @@ fn unescape(s: &str) -> String {
     }
     let s = &s[1..l-1];
     s.to_string().replace("''", "'")
+}
+
+fn parse_kind(pair: Option<Pair<Rule>>) -> Option<Directive> {
+	match pair {
+		None => None,
+		Some(p) => Some(match p.as_str() {
+			"create" => Directive::Create,
+			"append" => Directive::Append,
+			_ => unreachable!(),
+		})
+	}
 }
 
 pub use nom::{IResult, Needed};
