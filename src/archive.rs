@@ -11,6 +11,8 @@ pub struct Builder<'a> {
     b: TarBuilder<'a>,
 }
 
+pub struct Entry {}
+
 pub fn new<'a, T: Write + 'a>(w: T) -> Builder<'a> {
     let inner = Box::new(w) as Box<dyn Write + 'a>;
     let mut ar = tar::Builder::new(inner);
@@ -22,22 +24,35 @@ pub fn new<'a, T: Write + 'a>(w: T) -> Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    fn create(&self) -> Result<()> {
+    fn create<T: Write>(&self, to: PathBuf, from: T) -> Result<()> {
         unimplemented!()
     }
 
-    fn append(&mut self, to: PathBuf, data: Vec<u8>) -> Result<()> {
-        if !self.m.contains_key(&to) {
-            self.m.insert(to, data);
-        } else {
-            let buf = self.m.get_mut(&to).unwrap();
-            buf.extend(&data);
-        }
-        return Ok(());
+    pub fn append(&mut self, to: PathBuf, data: Vec<u8>) {
+        self.m
+            .entry(to)
+            .and_modify(|v| v.extend(&data))
+            .or_insert(data);
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn append() {
+        let backing: Vec<u8> = Vec::new();
+        let key = PathBuf::from("testfile");
+        let want = b"testcontent";
+
+        let mut b = new(backing);
+        b.append(key, Vec::from(&want[..]));
+
+        let key = PathBuf::from("testfile");
+        let got = b.m.get(&key);
+        assert_ne!(got, None);
+        let got = got.unwrap();
+        assert_eq!(want, got.as_slice());
+    }
 }
