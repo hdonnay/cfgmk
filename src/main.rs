@@ -32,7 +32,7 @@ fn main() {
         Some(n) => File::create(n),
     }
     .unwrap();
-    let ar = archive::new(f);
+    let ar = archive::Builder::new(f);
 
     let root = match opt.root {
         None => PathBuf::from("."),

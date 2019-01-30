@@ -1,8 +1,11 @@
 use std::collections::HashMap;
-use std::io::{Result, Write};
+use std::io::{Read, Result, Write};
 use std::path::PathBuf;
 
+extern crate chrono;
 extern crate tar;
+
+use chrono::{DateTime, Utc};
 
 type TarBuilder<'a> = tar::Builder<Box<dyn Write + 'a>>;
 
@@ -11,19 +14,35 @@ pub struct Builder<'a> {
     b: TarBuilder<'a>,
 }
 
-pub struct Entry {}
+pub struct Entry<'a> {
+    rd: Box<dyn Read + 'a>,
+    hdr: tar::Header,
+}
 
-pub fn new<'a, T: Write + 'a>(w: T) -> Builder<'a> {
-    let inner = Box::new(w) as Box<dyn Write + 'a>;
-    let mut ar = tar::Builder::new(inner);
-    ar.follow_symlinks(false);
-    Builder {
-        m: HashMap::new(),
-        b: ar,
+impl<'a> Entry<'a> {
+    pub fn new<T: Read + 'a>(r: T, t: DateTime<Utc>) -> Entry<'a> {
+        let mut hdr = tar::Header::new_ustar();
+        hdr.set_mtime(t.timestamp() as u64);
+        Entry {
+            rd: Box::new(r) as Box<dyn Read + 'a>,
+            hdr,
+        }
     }
+
+    pub fn from() {}
 }
 
 impl<'a> Builder<'a> {
+    pub fn new<T: Write + 'a>(w: T) -> Builder<'a> {
+        let inner = Box::new(w) as Box<dyn Write + 'a>;
+        let mut ar = tar::Builder::new(inner);
+        ar.follow_symlinks(false);
+        Builder {
+            m: HashMap::new(),
+            b: ar,
+        }
+    }
+
     fn create<T: Write>(&self, to: PathBuf, from: T) -> Result<()> {
         unimplemented!()
     }
@@ -46,7 +65,7 @@ mod test {
         let key = PathBuf::from("testfile");
         let want = b"testcontent";
 
-        let mut b = new(backing);
+        let mut b = Builder::new(backing);
         b.append(key, Vec::from(&want[..]));
 
         let key = PathBuf::from("testfile");
