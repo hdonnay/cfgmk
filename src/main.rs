@@ -2,16 +2,18 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str;
-use structopt::StructOpt;
 
 mod archive;
 mod parser;
 mod walk;
 
+#[macro_use]
 extern crate structopt;
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
+
+use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -25,6 +27,7 @@ struct Opt {
 
 fn main() {
     let opt = Opt::from_args();
+    println!("{:?}", opt);
 
     let f = match opt.output {
         None => File::open("/dev/stdout"),
