@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str;
+use std::time::SystemTime;
 
 mod archive;
 mod parser;
@@ -12,6 +13,9 @@ extern crate structopt;
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
+extern crate chrono;
+
+use chrono::{DateTime, Utc};
 
 use structopt::StructOpt;
 
@@ -64,19 +68,36 @@ fn main() {
     }
     println!("{:?}", stmts);
 
+    let now: DateTime<Utc> = DateTime::from(SystemTime::now());
     for s in stmts {
         match s.from {
             parser::From::File(n) => {
                 let mut f = File::open(n).unwrap();
                 match s.kind {
-                    parser::Directive::Create => ar.create_file(
-                        s.path.into(),
-                        &mut f
-                    ).unwrap(),
-                    _ => unimplemented!(),
+                    parser::Directive::Create => ar.create_file(s.path.into(), &mut f).unwrap(),
+                    parser::Directive::Append => {
+                        let mut buf = Vec::new();
+                        f.read_to_end(&mut buf).unwrap();
+                        ar.append(s.path.into(), buf)
+                    }
                 }
+            }
+            parser::From::Literal(lit) => match s.kind {
+                parser::Directive::Create => ar
+                    .create_literal(s.path.into(), Vec::from(lit), now)
+                    .unwrap(),
+                parser::Directive::Append => ar.append(s.path.into(), Vec::from(lit)),
             },
-            _ => unimplemented!(),
+            parser::From::Filter(which, from) => {
+                // Figure out if we need to run code.
+                match which {
+                    _ => unimplemented!(),
+                };
+                match s.kind {
+                    parser::Directive::Create => unimplemented!(),
+                    parser::Directive::Append => unimplemented!(),
+                }
+            }
         }
     }
 }

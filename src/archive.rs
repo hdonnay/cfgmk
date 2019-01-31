@@ -1,7 +1,7 @@
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::{Read, Result, Write};
 use std::path::PathBuf;
-use std::fs::File;
 
 extern crate chrono;
 extern crate tar;
