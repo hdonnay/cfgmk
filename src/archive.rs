@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Result, Write};
 use std::path::PathBuf;
+use std::fs::File;
 
 extern crate chrono;
 extern crate tar;
@@ -29,7 +30,9 @@ impl<'a> Entry<'a> {
         }
     }
 
-    pub fn from() {}
+    pub fn from() {
+        unimplemented!()
+    }
 }
 
 impl<'a> Builder<'a> {
@@ -43,7 +46,15 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn create<T: Write>(&self, to: PathBuf, from: T) -> Result<()> {
+    pub fn create_file(&mut self, to: PathBuf, from: &mut File) -> Result<()> {
+        self.b.append_file(to, from)
+    }
+
+    pub fn create_filter(&mut self, to: PathBuf, from: (), at: DateTime<Utc>) -> Result<()> {
+        unimplemented!()
+    }
+
+    pub fn create_literal(&mut self, to: PathBuf, from: Vec<u8>, at: DateTime<Utc>) -> Result<()> {
         unimplemented!()
     }
 

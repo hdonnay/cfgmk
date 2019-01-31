@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::Read;
 use std::path::PathBuf;
 use std::str;
 use structopt::StructOpt;
@@ -8,7 +8,6 @@ mod archive;
 mod parser;
 mod walk;
 
-#[macro_use]
 extern crate structopt;
 extern crate pest;
 #[macro_use]
@@ -32,7 +31,7 @@ fn main() {
         Some(n) => File::create(n),
     }
     .unwrap();
-    let ar = archive::Builder::new(f);
+    let mut ar = archive::Builder::new(f);
 
     let root = match opt.root {
         None => PathBuf::from("."),
@@ -41,7 +40,7 @@ fn main() {
 
     let mut fs = Vec::new();
     for e in walk::find_rules(root) {
-        let mut f = File::open(e).unwrap();
+        let f = File::open(e).unwrap();
         fs.push(f);
     }
     println!("{:?}", fs);
@@ -61,4 +60,20 @@ fn main() {
         }
     }
     println!("{:?}", stmts);
+
+    for s in stmts {
+        match s.from {
+            parser::From::File(n) => {
+                let mut f = File::open(n).unwrap();
+                match s.kind {
+                    parser::Directive::Create => ar.create_file(
+                        s.path.into(),
+                        &mut f
+                    ).unwrap(),
+                    _ => unimplemented!(),
+                }
+            },
+            _ => unimplemented!(),
+        }
+    }
 }
