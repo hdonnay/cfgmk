@@ -1,5 +1,6 @@
+use std::collections::HashSet;
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Read};
 use std::path::PathBuf;
 use std::str;
 use std::time::SystemTime;
@@ -31,14 +32,15 @@ struct Opt {
 
 fn main() {
     let opt = Opt::from_args();
-    println!("{:?}", opt);
 
-    let f = match opt.output {
-        None => File::open("/dev/stdout"),
-        Some(n) => File::create(n),
-    }
-    .unwrap();
-    let mut ar = archive::Builder::new(f);
+    let stdout = io::stdout();
+    let mut ar = match opt.output {
+        None => archive::Builder::new(stdout.lock()),
+        Some(n) => {
+            let f = File::create(n).unwrap();
+            archive::Builder::new(f)
+        }
+    };
 
     let root = match opt.root {
         None => PathBuf::from("."),
@@ -50,7 +52,6 @@ fn main() {
         let f = File::open(e).unwrap();
         fs.push(f);
     }
-    println!("{:?}", fs);
 
     let mut bs = Vec::new();
     for mut f in fs {
@@ -63,13 +64,17 @@ fn main() {
     for buf in bs {
         match parser::rulesfile(str::from_utf8(&buf).unwrap()) {
             Ok(v) => stmts.extend(v),
-            Err(e) => println!("{:?}", e),
+            Err(e) => eprintln!("{:?}", e),
         }
     }
-    println!("{:?}", stmts);
 
     let now: DateTime<Utc> = DateTime::from(SystemTime::now());
+    let mut unseen = HashSet::new();
     for s in stmts {
+        if !unseen.insert(s.path.clone()) {
+            eprintln!("overwriting entry: {}", s.path);
+        }
+        let mut data = s.from.realize().unwrap();
         match s.from {
             parser::From::File(n) => {
                 let mut f = File::open(n).unwrap();
@@ -84,9 +89,9 @@ fn main() {
             }
             parser::From::Literal(lit) => match s.kind {
                 parser::Directive::Create => ar
-                    .create_literal(s.path.into(), Vec::from(lit), now)
+                    .create_literal(s.path.into(), data, now)
                     .unwrap(),
-                parser::Directive::Append => ar.append(s.path.into(), Vec::from(lit)),
+                parser::Directive::Append => ar.append(s.path.into(), data),
             },
             parser::From::Filter(which, from) => {
                 // Figure out if we need to run code.

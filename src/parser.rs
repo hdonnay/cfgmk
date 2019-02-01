@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::Read;
+
 use pest::error::Error;
 use pest::iterators::Pair;
 use pest::Parser;
@@ -92,6 +95,24 @@ pub enum From {
     File(String),
     Filter(String, Box<From>),
     Literal(String),
+}
+
+impl From {
+    pub fn realize(&self) -> Result<Vec<u8>, ()> {
+        match self {
+            From::Literal(e) => Ok(Vec::from(e.as_str())),
+            From::File(n) => {
+                let mut buf = Vec::new();
+                let mut f = File::open(n).unwrap();
+                f.read_to_end(&mut buf).unwrap();
+                Ok(buf)
+            },
+            From::Filter(which, inner) =>  {
+                eprintln!("which: {}, inner: {:?}", which, inner);
+                unimplemented!()
+            },
+        }
+    }
 }
 
 #[cfg(test)]
