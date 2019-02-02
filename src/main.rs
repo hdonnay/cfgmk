@@ -6,6 +6,7 @@ use std::str;
 use std::time::SystemTime;
 
 mod archive;
+mod filter;
 mod parser;
 mod walk;
 
@@ -31,6 +32,9 @@ struct Opt {
 }
 
 fn main() {
+    let filters = filter::Builder::new()
+        .add("cat", Box::new(filter::cat::filter))
+        .finish();
     let opt = Opt::from_args();
 
     let stdout = io::stdout();
@@ -62,47 +66,22 @@ fn main() {
 
     let mut stmts = Vec::new();
     for buf in bs {
-        match parser::rulesfile(str::from_utf8(&buf).unwrap()) {
-            Ok(v) => stmts.extend(v),
-            Err(e) => eprintln!("{:?}", e),
+        let name = str::from_utf8(&buf).unwrap();
+        let r = parser::Rulesfile::new(&filters, name).unwrap();
+        for s in r {
+            stmts.push(s);
         }
     }
 
-    let now: DateTime<Utc> = DateTime::from(SystemTime::now());
     let mut unseen = HashSet::new();
     for s in stmts {
         if !unseen.insert(s.path.clone()) {
             eprintln!("overwriting entry: {}", s.path);
         }
-        let mut data = s.from.realize().unwrap();
-        match s.from {
-            parser::From::File(n) => {
-                let mut f = File::open(n).unwrap();
-                match s.kind {
-                    parser::Directive::Create => ar.create_file(s.path.into(), &mut f).unwrap(),
-                    parser::Directive::Append => {
-                        let mut buf = Vec::new();
-                        f.read_to_end(&mut buf).unwrap();
-                        ar.append(s.path.into(), buf)
-                    }
-                }
-            }
-            parser::From::Literal(lit) => match s.kind {
-                parser::Directive::Create => ar
-                    .create_literal(s.path.into(), data, now)
-                    .unwrap(),
-                parser::Directive::Append => ar.append(s.path.into(), data),
-            },
-            parser::From::Filter(which, from) => {
-                // Figure out if we need to run code.
-                match which {
-                    _ => unimplemented!(),
-                };
-                match s.kind {
-                    parser::Directive::Create => unimplemented!(),
-                    parser::Directive::Append => unimplemented!(),
-                }
-            }
+        match s.kind {
+            parser::Directive::Create => ar.create(s.path.into(), s.from),
+            _ => unimplemented!(),
         }
+        .unwrap();
     }
 }

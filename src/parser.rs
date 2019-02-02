@@ -1,37 +1,65 @@
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Cursor, Read};
 
 use pest::error::Error;
 use pest::iterators::Pair;
 use pest::Parser;
 
+use crate::filter;
+
 #[derive(Parser)]
 #[grammar = "parser/rulesfile.pest"]
 struct RulesParser;
 
-pub fn rulesfile(file: &str) -> Result<Vec<Stmt>, Error<Rule>> {
-    let rp = RulesParser::parse(Rule::file, file)?;
+pub struct Rulesfile<'a> {
+    f: &'a filter::FilterMap,
+    vec: Vec<Stmt>,
+}
 
-    let mut stmts = Vec::new();
-    for pair in rp {
-        match pair.as_rule() {
-            Rule::statement => {
-                let mut s = pair.into_inner();
-                let kind = s.next();
-                let path = s.next().unwrap();
-                let from = s.next().unwrap().into_inner().next();
-                stmts.push(Stmt {
-                    kind: parse_kind(kind).unwrap(),
-                    path: unescape(path.as_str()),
-                    from: parse_from(from).unwrap(),
-                });
+impl<'a> Rulesfile<'a> {
+    pub fn new(f: &'a filter::FilterMap, path: &str) -> Result<Rulesfile<'a>, Error<Rule>> {
+        let rp = RulesParser::parse(Rule::file, path)?;
+
+        let mut stmts = Vec::new();
+        for pair in rp {
+            match pair.as_rule() {
+                Rule::statement => {
+                    let mut s = pair.into_inner();
+                    let kind = s.next();
+                    let path = s.next().unwrap();
+                    let from = s.next().unwrap().into_inner().next();
+                    stmts.push(Stmt {
+                        kind: parse_kind(kind).unwrap(),
+                        path: unescape(path.as_str()),
+                        from: parse_from(from).unwrap(),
+                    });
+                }
+                Rule::EOI => break,
+                _ => unimplemented!(),
             }
-            Rule::EOI => break,
-            _ => unimplemented!(),
+        }
+
+        Ok(Rulesfile { f, vec: stmts })
+    }
+}
+
+impl<'a> Iterator for Rulesfile<'a> {
+    type Item = Stmt;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.vec.pop() {
+            Some(s) => Some(match s.from {
+                From::Filter(_, _) => Stmt {
+                    kind: s.kind,
+                    path: s.path,
+                    from: self.f.reify(&s.from),
+                },
+                _ => s,
+            }),
+            None => None,
         }
     }
-
-    Ok(stmts)
 }
 
 fn unescape(s: &str) -> String {
@@ -64,7 +92,7 @@ fn parse_from(pair: Option<Pair<Rule>>) -> Option<From> {
             }
             Rule::fromLiteral => {
                 let n = p.into_inner().as_str();
-                From::Literal(unescape(n))
+                From::Literal(Vec::from(unescape(n)))
             }
             Rule::fromFilter => {
                 let mut n = p.into_inner();
@@ -77,42 +105,24 @@ fn parse_from(pair: Option<Pair<Rule>>) -> Option<From> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Directive {
     Create,
     Append,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Stmt {
     pub kind: Directive,
     pub path: String,
     pub from: From,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum From {
     File(String),
     Filter(String, Box<From>),
-    Literal(String),
-}
-
-impl From {
-    pub fn realize(&self) -> Result<Vec<u8>, ()> {
-        match self {
-            From::Literal(e) => Ok(Vec::from(e.as_str())),
-            From::File(n) => {
-                let mut buf = Vec::new();
-                let mut f = File::open(n).unwrap();
-                f.read_to_end(&mut buf).unwrap();
-                Ok(buf)
-            },
-            From::Filter(which, inner) =>  {
-                eprintln!("which: {}, inner: {:?}", which, inner);
-                unimplemented!()
-            },
-        }
-    }
+    Literal(Vec<u8>),
 }
 
 #[cfg(test)]
@@ -120,21 +130,5 @@ mod test {
     use super::*;
 
     #[test]
-    fn basic() {
-        let rf = include_str!("../tests/parser/basic");;
-        let want = vec![Stmt {
-            kind: Directive::Create,
-            path: "test".to_string(),
-            from: From::File("/dev/null".to_string()),
-        }];
-        let res = rulesfile(rf);
-        match res {
-            Err(e) => {
-                panic!("{}", e);
-            }
-            Ok(got) => {
-                assert_eq!(got, want);
-            }
-        }
-    }
+    fn basic() {}
 }

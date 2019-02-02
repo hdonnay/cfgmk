@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Read, Result, Write};
+use std::io::{Cursor, Read, Result, Write};
 use std::path::PathBuf;
+use std::time::SystemTime;
+
+use crate::parser;
 
 extern crate chrono;
 extern crate tar;
@@ -46,43 +49,51 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn create_file(&mut self, to: PathBuf, from: &mut File) -> Result<()> {
-        self.b.append_file(to, from)
+    pub fn create(&mut self, to: PathBuf, from: parser::From) -> Result<()> {
+        match from {
+            parser::From::File(name) => {
+                let mut f = File::open(name).unwrap();
+                self.b.append_file(to, &mut f)
+            }
+            parser::From::Literal(lit) => {
+                let now: DateTime<Utc> = DateTime::from(SystemTime::now());
+                let mut hdr = tar::Header::new_ustar();
+                hdr.set_mtime(now.timestamp() as u64);
+                self.b.append_data(&mut hdr, to, Cursor::new(lit))
+            }
+            _ => unimplemented!(),
+        }
     }
 
-    pub fn create_filter(&mut self, to: PathBuf, from: (), at: DateTime<Utc>) -> Result<()> {
-        unimplemented!()
-    }
-
-    pub fn create_literal(&mut self, to: PathBuf, from: Vec<u8>, at: DateTime<Utc>) -> Result<()> {
-        unimplemented!()
-    }
-
-    pub fn append(&mut self, to: PathBuf, data: Vec<u8>) {
+    pub fn append(&mut self, to: PathBuf, from: parser::From) {
         self.m
             .entry(to)
-            .and_modify(|v| v.extend(&data))
-            .or_insert(data);
+            .and_modify(|v| {
+                v.extend(match from.clone() {
+                    parser::From::Literal(lit) => lit,
+                    parser::From::File(name) => {
+                        let mut f = File::open(name).unwrap();
+                        let mut b = Vec::new();
+                        debug_assert_ne!(f.read_to_end(&mut b).unwrap(), 0);
+                        b
+                    }
+                    parser::From::Filter(which, inner) => panic!(),
+                })
+            })
+            .or_insert_with(|| match from {
+                parser::From::Literal(lit) => lit,
+                parser::From::File(name) => {
+                    let mut f = File::open(name).unwrap();
+                    let mut b = Vec::new();
+                    debug_assert_ne!(f.read_to_end(&mut b).unwrap(), 0);
+                    b
+                }
+                parser::From::Filter(which, inner) => panic!(),
+            });
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn append() {
-        let backing: Vec<u8> = Vec::new();
-        let key = PathBuf::from("testfile");
-        let want = b"testcontent";
-
-        let mut b = Builder::new(backing);
-        b.append(key, Vec::from(&want[..]));
-
-        let key = PathBuf::from("testfile");
-        let got = b.m.get(&key);
-        assert_ne!(got, None);
-        let got = got.unwrap();
-        assert_eq!(want, got.as_slice());
-    }
 }
