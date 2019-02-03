@@ -17,6 +17,10 @@ pub struct Rulesfile<'a> {
     vec: Vec<Stmt>,
 }
 
+// TODO Use proptest crate.
+
+// TODO Add Rulesfile conditional based on hostname, as `if 'name' ...`.
+
 impl<'a> Rulesfile<'a> {
     pub fn new(f: &'a filter::FilterMap, path: &str) -> Result<Rulesfile<'a>, Error<Rule>> {
         let rp = RulesParser::parse(Rule::file, path)?;

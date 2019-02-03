@@ -1,5 +1,5 @@
-use std::collections::HashSet;
-use std::fs::File;
+use std::collections::{HashMap, HashSet};
+use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::str;
@@ -27,15 +27,59 @@ struct Opt {
     #[structopt(short, parse(from_os_str))]
     output: Option<PathBuf>,
     /// Root of the tree to compile.
-    #[structopt(parse(from_os_str))]
-    root: Option<PathBuf>,
+    #[structopt(parse(from_os_str), default_value = ".")]
+    root: PathBuf,
+    /// Machine name.
+    #[structopt(short)]
+    name: Option<String>,
 }
 
+type VarMap = HashMap<String, HashMap<String, String>>;
+
 fn main() {
+    let opt = Opt::from_args();
+    let name = match opt.name {
+        None => {
+            let mach_id = fs::read_to_string("/etc/machine-id")
+                .unwrap_or("00000000000000000000000000000000".to_string());
+
+            let mut mapfile = opt.root.clone();
+            mapfile.push("host.yaml");
+            let mapfile = File::open(mapfile).unwrap_or_else(|_| {
+                eprintln!("unable to open host.yaml, no variables loaded");
+                File::open("/dev/null").unwrap()
+            });
+            let mut name= String::from("");
+            if let Ok(m) = serde_yaml::from_reader::<File, HashMap<String, String> >(mapfile) {
+                name = m.get(&mach_id).unwrap().to_owned();
+            }
+            name
+        }
+        Some(name) => name,
+    };
+
+    let mut varfile = opt.root.clone();
+    varfile.push("vars.yaml");
+    let varfile = File::open(varfile).unwrap_or_else(|_| File::open("/dev/null").unwrap());
+    let varmap: VarMap = match serde_yaml::from_reader(varfile) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("unable to open vars.yaml, no variables loaded: {:?}", e);
+            VarMap::new()
+        },
+    };
+    let mut filtermap: &HashMap<String, String> = &HashMap::new();
+    if name != "" && varmap.len() != 0 {
+        filtermap = varmap.get(&name).unwrap();
+    };
+
+    let simple = filter::simple::Builder::new()
+        .mapper(filtermap)
+        .finish();
     let filters = filter::Builder::new()
         .add("cat", Box::new(filter::cat::filter))
+        .add("simple", simple)
         .finish();
-    let opt = Opt::from_args();
 
     let stdout = io::stdout();
     let mut ar = match opt.output {
@@ -46,13 +90,8 @@ fn main() {
         }
     };
 
-    let root = match opt.root {
-        None => PathBuf::from("."),
-        Some(n) => n,
-    };
-
     let mut fs = Vec::new();
-    for e in walk::find_rules(root) {
+    for e in walk::find_rules(opt.root) {
         let f = File::open(e).unwrap();
         fs.push(f);
     }
