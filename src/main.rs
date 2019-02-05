@@ -41,7 +41,7 @@ fn main() {
     let name = match opt.name {
         None => {
             let mach_id = fs::read_to_string("/etc/machine-id")
-                .unwrap_or("00000000000000000000000000000000".to_string());
+                .unwrap_or_else(|_| "00000000000000000000000000000000".to_string());
 
             let mut mapfile = opt.root.clone();
             mapfile.push("host.yaml");
@@ -51,7 +51,7 @@ fn main() {
             });
             let mut name = String::from("");
             if let Ok(m) = serde_yaml::from_reader::<File, HashMap<String, String>>(mapfile) {
-                name = m.get(&mach_id).unwrap().to_owned();
+                name = m[&mach_id].to_owned();
             }
             name
         }
@@ -69,8 +69,8 @@ fn main() {
         }
     };
     let mut filtermap: &HashMap<String, String> = &HashMap::new();
-    if name != "" && varmap.len() != 0 {
-        filtermap = varmap.get(&name).unwrap();
+    if name != "" && !varmap.is_empty() {
+        filtermap = &varmap[&name];
     };
 
     let simple = filter::simple::Builder::new().mapper(filtermap).finish();
