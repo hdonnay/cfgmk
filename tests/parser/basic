@@ -1,1 +1,5 @@
 create 'test' from '/dev/null'
+append 'test' literal 'appended this
+'
+if 'this host' create 'another_test' from '/dev/null'
+create 'filter_test' filter 'cat' filter 'cat' from '/dev/null'

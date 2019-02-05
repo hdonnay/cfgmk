@@ -18,26 +18,6 @@ pub struct Builder<'a> {
     b: TarBuilder<'a>,
 }
 
-pub struct Entry<'a> {
-    rd: Box<dyn Read + 'a>,
-    hdr: tar::Header,
-}
-
-impl<'a> Entry<'a> {
-    pub fn new<T: Read + 'a>(r: T, t: DateTime<Utc>) -> Entry<'a> {
-        let mut hdr = tar::Header::new_ustar();
-        hdr.set_mtime(t.timestamp() as u64);
-        Entry {
-            rd: Box::new(r) as Box<dyn Read + 'a>,
-            hdr,
-        }
-    }
-
-    pub fn from() {
-        unimplemented!()
-    }
-}
-
 impl<'a> Builder<'a> {
     pub fn new<T: Write + 'a>(w: T) -> Builder<'a> {
         let inner = Box::new(w) as Box<dyn Write + 'a>;
@@ -61,7 +41,9 @@ impl<'a> Builder<'a> {
                 hdr.set_mtime(now.timestamp() as u64);
                 self.b.append_data(&mut hdr, to, Cursor::new(lit))
             }
-            _ => unimplemented!(),
+            parser::From::Filter(which, inner) => {
+                unreachable!("should only have File or Literal here")
+            }
         }
     }
 
@@ -77,7 +59,9 @@ impl<'a> Builder<'a> {
                         debug_assert_ne!(f.read_to_end(&mut b).unwrap(), 0);
                         b
                     }
-                    parser::From::Filter(which, inner) => panic!(),
+                    parser::From::Filter(which, inner) => {
+                        unreachable!("should only have File or Literal here")
+                    }
                 })
             })
             .or_insert_with(|| match from {
@@ -88,12 +72,38 @@ impl<'a> Builder<'a> {
                     debug_assert_ne!(f.read_to_end(&mut b).unwrap(), 0);
                     b
                 }
-                parser::From::Filter(which, inner) => panic!(),
+                parser::From::Filter(which, inner) => {
+                    unreachable!("should only have File or Literal here")
+                }
             });
+    }
+
+    pub fn finish(mut self) -> Result<()> {
+        self.b.finish()
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::parser::From;
+
+    #[test]
+    fn creation() {
+        let mut buf = Vec::new();
+        let mut w = Cursor::new(buf);
+        let mut ar = Builder::new(w);
+
+        let f = From::Literal(Vec::from("test"));
+        let p = PathBuf::from("test/test");
+
+        assert_eq!((), ar.create(p, f).unwrap());
+    }
+
+    /*
+    #[test]
+    fn appending() {
+        unimplemented!()
+    }
+    */
 }

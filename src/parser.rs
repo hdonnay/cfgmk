@@ -34,6 +34,7 @@ impl<'a> Rulesfile<'a> {
                     let path = s.next().unwrap();
                     let from = s.next().unwrap().into_inner().next();
                     stmts.push(Stmt {
+                        cond: None,
                         kind: parse_kind(kind).unwrap(),
                         path: unescape(path.as_str()),
                         from: parse_from(from).unwrap(),
@@ -55,6 +56,7 @@ impl<'a> Iterator for Rulesfile<'a> {
         match self.vec.pop() {
             Some(s) => Some(match s.from {
                 From::Filter(_, _) => Stmt {
+                    cond: s.cond,
                     kind: s.kind,
                     path: s.path,
                     from: self.f.reify(&s.from),
@@ -117,6 +119,7 @@ pub enum Directive {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Stmt {
+    pub cond: Option<Conditional>,
     pub kind: Directive,
     pub path: String,
     pub from: From,
@@ -127,6 +130,11 @@ pub enum From {
     File(String),
     Filter(String, Box<From>),
     Literal(Vec<u8>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Conditional {
+    If(String),
 }
 
 #[cfg(test)]

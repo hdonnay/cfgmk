@@ -1,5 +1,6 @@
 file = _{ SOI ~ statement* ~ EOI }
-statement = { directive ~ string ~ from }
+statement = { conditional? ~ directive ~ string ~ from }
+conditional = { "if" ~ string }
 directive = { "create" | "append" }
 path = { string }
 from = {fromFile | fromLiteral | fromFilter}

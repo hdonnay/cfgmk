@@ -49,8 +49,8 @@ fn main() {
                 eprintln!("unable to open host.yaml, no variables loaded");
                 File::open("/dev/null").unwrap()
             });
-            let mut name= String::from("");
-            if let Ok(m) = serde_yaml::from_reader::<File, HashMap<String, String> >(mapfile) {
+            let mut name = String::from("");
+            if let Ok(m) = serde_yaml::from_reader::<File, HashMap<String, String>>(mapfile) {
                 name = m.get(&mach_id).unwrap().to_owned();
             }
             name
@@ -66,16 +66,14 @@ fn main() {
         Err(e) => {
             eprintln!("unable to open vars.yaml, no variables loaded: {:?}", e);
             VarMap::new()
-        },
+        }
     };
     let mut filtermap: &HashMap<String, String> = &HashMap::new();
     if name != "" && varmap.len() != 0 {
         filtermap = varmap.get(&name).unwrap();
     };
 
-    let simple = filter::simple::Builder::new()
-        .mapper(filtermap)
-        .finish();
+    let simple = filter::simple::Builder::new().mapper(filtermap).finish();
     let filters = filter::Builder::new()
         .add("cat", Box::new(filter::cat::filter))
         .add("simple", simple)
